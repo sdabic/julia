@@ -104,14 +104,17 @@ end
 
 function cache_lookup(code::MethodInstance, argtypes::Vector{Any}, cache::Vector{InferenceResult})
     method = code.def::Method
+    nargs::Int = method.nargs
+    method.isva && (nargs -= 1)
     for cache_code in cache
         # try to search cache first
         cache_args = cache_code.args
-        if cache_code.linfo === code && length(cache_args) == length(argtypes)
+        cache_vargs = cache_code.vargs
+        if cache_code.linfo === code && length(argtypes) === (length(cache_vargs) + nargs)
             cache_match = true
             for i in 1:length(argtypes)
                 a = argtypes[i]
-                ca = cache_args[i]
+                ca = i <= nargs ? cache_args[i] : cache_vargs[i - nargs]
                 # verify that all Const argument types match between the call and cache
                 if (isa(a, Const) || isa(ca, Const)) && !(a === ca)
                     cache_match = false
