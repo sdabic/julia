@@ -196,7 +196,13 @@ function abstract_call_method(method::Method, @nospecialize(sig), sparams::Simpl
     cyclei = 0
     infstate = sv
     edgecycle = false
+    # The `method_for_inference_heuristics` will expand the given method's generator if
+    # necessary in order to retrieve this field from the generated `CodeInfo`, if it exists.
+    # The other `CodeInfo`s we inspect will already have this field inflated, so we just
+    # access it directly instead (to avoid regeneration).
     method2 = method_for_inference_heuristics(method, sig, sparams, sv.params.world) # Union{Method, Nothing}
+    sv_method2 = sv.src.method_for_inference_limit_heuristics # limit only if user token match
+    sv_method2 isa Method || (sv_method2 = nothing) # Union{Method, Nothing}
     while !(infstate === nothing)
         infstate = infstate::InferenceState
         if method === infstate.linfo.def
@@ -217,7 +223,9 @@ function abstract_call_method(method::Method, @nospecialize(sig), sparams::Simpl
                 for parent in infstate.callers_in_cycle
                     # check in the cycle list first
                     # all items in here are mutual parents of all others
-                    if parent.linfo.def === sv.linfo.def
+                    parent_method2 = parent.src.method_for_inference_limit_heuristics # limit only if user token match
+                    parent_method2 isa Method || (parent_method2 = nothing) # Union{Method, Nothing}
+                    if parent.linfo.def === sv.linfo.def && sv_method2 === parent_method2
                         topmost = infstate
                         edgecycle = true
                         break
@@ -227,7 +235,9 @@ function abstract_call_method(method::Method, @nospecialize(sig), sparams::Simpl
                     # then check the parent link
                     if topmost === nothing && parent !== nothing
                         parent = parent::InferenceState
-                        if parent.cached && parent.linfo.def === sv.linfo.def
+                        parent_method2 = parent.src.method_for_inference_limit_heuristics # limit only if user token match
+                        parent_method2 isa Method || (parent_method2 = nothing) # Union{Method, Nothing}
+                        if parent.cached && parent.linfo.def === sv.linfo.def && sv_method2 === parent_method2
                             topmost = infstate
                             edgecycle = true
                         end
