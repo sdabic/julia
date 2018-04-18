@@ -36,16 +36,19 @@ function get_argtypes(result::InferenceResult)
             if nargs > laty
                 va = atypes[laty]
                 if isvarargtype(va)
-                    # assumes that we should never see Vararg{T, x}, where x is a constant (should be guaranteed by construction)
-                    va = rewrap_unionall(va, linfo.specTypes)
-                    vararg_type_vec = Any[va]
-                    vararg_type = Tuple{va}
+                    new_va = rewrap_unionall(unconstrain_vararg_length(va), linfo.specTypes)
+                    vararg_type_vec = Any[new_va]
+                    vararg_type = Tuple{new_va}
                 else
                     vararg_type_vec = Any[]
                     vararg_type = Tuple{}
                 end
             else
-                vararg_type_vec = Any[rewrap_unionall(p, linfo.specTypes) for p in atypes[nargs:laty]]
+                vararg_type_vec = Any[]
+                for p in atypes[nargs:laty]
+                    p = isvarargtype(p) ? unconstrain_vararg_length(p) : p
+                    push!(vararg_type_vec, rewrap_unionall(p, linfo.specTypes))
+                end
                 vararg_type = tuple_tfunc(Tuple{vararg_type_vec...})
                 for i in 1:length(vararg_type_vec)
                     atyp = vararg_type_vec[i]
